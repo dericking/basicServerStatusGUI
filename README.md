@@ -67,4 +67,7 @@ Copy the config.py.template file to config.py and edit accordingly.
 Run the application using the following command:
 
 ```sh
-python basicServerStatusGUI.py
+python basicServerStatusGUI.py &
+```
+
+I've allowed to run in background for months on end. 
