@@ -1,13 +1,16 @@
 # Simple Server Status GUI Panel
 
-This project provides a simple graphical user interface (GUI) to monitor the status of a server and manage basic backups (assumed to be on external device). The GUI is built using `ttkbootstrap` and `tkinter`. 
+Provides a simple Python-based graphical user interface (GUI) to monitor the status of a server and manage basic backups (assumed to be on external device). The GUI is built using `ttkbootstrap` and `tkinter`.
 
 ## Features
 
-- Monitor server status using ping or HTTP response code (for when ping isn't allowed).
-- Display the most recent online status time and a indicator of current status.
-- Allows for a manual backup.
-- View backup logs.
+- Monitor server status in simple manner using ping or HTTP response code (for when ping isn't allowed).
+  - GUI displays current status, and
+  - Displays most recent time server was reachable.
+- Allows for a manual backup using rsync (Linux or Mac) and is useful for backups in-between cron jobs. 
+- View backup logs which open in default system editor
+  - Linux via 'xdg-open', and
+  - Mac via 'open'.
 
 ## Requirements
 
@@ -38,7 +41,7 @@ Copy the config.py.template file to config.py and edit accordingly.
 
 | Parameter       | Description                                      | Default Value                      |
 |-----------------|--------------------------------------------------|------------------------------------|
-| `GUI_THEME`     | Default TTKBootstrap theme for the GUI                       | `superhero`                        |
+| `GUI_THEME`     | Default TTKBootstrap theme for the GUI           | `superhero`                        |
 | `FONT_TYPE`     | Default font type                                | `Helvetica`                        |
 | `FONT_SIZE`     | Default font size                                | `12`                               |
 | `HEAD_SIZE`     | Default header font size                         | `16`                               |
