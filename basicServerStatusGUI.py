@@ -1,15 +1,15 @@
+from tkinter import messagebox, Listbox, Scrollbar, VERTICAL, RIGHT, Y, END, SINGLE
 import ttkbootstrap as ttk
 from ttkbootstrap.constants import *
+import shutil
 import requests
 import threading
 import time
 import os
 import subprocess
 import datetime
-from tkinter import simpledialog, messagebox, Listbox, Scrollbar, VERTICAL, RIGHT, Y, END, SINGLE
 
-
-# Import configuration
+# Import configuration file
 import config  
 
 class MonitorGUIApp:
@@ -21,7 +21,7 @@ class MonitorGUIApp:
         # Load settings from config.py
         self.server_url = config.SERVER_URL
         self.refresh_interval = config.REFRESHINT
-        self.theme = config.GUI_THEME
+        # self.theme = config.GUI_THEME   # Unused variable removed
 
         # Initialize backup logs
         self.backup_logs = self.get_backup_logs()
@@ -29,6 +29,7 @@ class MonitorGUIApp:
         style = ttk.Style()
         style.theme_use(config.GUI_THEME)
 
+        #################################################################
         # Frame for Theme Selection
         theme_frame = ttk.Frame(master)
         theme_frame.pack(pady=10, padx=10, fill=X)
@@ -43,22 +44,19 @@ class MonitorGUIApp:
         self.theme_dropdown.pack(side=LEFT, fill=X, expand=True)
         self.theme_dropdown.bind("<<ComboboxSelected>>", self.change_theme)
 
+        #################################################################
         # Server Status Section
         server_status_frame = ttk.LabelFrame(master, text=f"{config.SHORT_NAME} Server Status",borderwidth=10, relief="groove", bootstyle=INFO)
         server_status_frame.pack(pady=config.LBLFRMPAD, padx=10, fill=X)
-        self.label = ttk.Label(
-            server_status_frame, text=f"{config.SHORT_NAME} Server Status",
-            font=(config.FONT_TYPE, config.HEAD_SIZE, "bold"), bootstyle=INFO
-        )
-        self.label.pack(pady=10)
+
         # Frame for grid layout
         status_frame = ttk.Frame(server_status_frame)
-        status_frame.pack(pady=10)
+        status_frame.pack(pady=0)
         # Labels for Status and Last Checked (Header Row)
         self.status_label = ttk.Label(status_frame, text="Status", font=(config.FONT_TYPE, config.FONT_SIZE, 'bold'))
         self.status_label.grid(row=0, column=0, padx=20, pady=5, sticky="n")
         # Last checked text label
-        self.last_checked_label = ttk.Label(status_frame, text="Most Recent 'Online'", font=(config.FONT_TYPE, config.FONT_SIZE, 'bold'))
+        self.last_checked_label = ttk.Label(status_frame, text="Most Recently 'Online'", font=(config.FONT_TYPE, config.FONT_SIZE, 'bold'))
         self.last_checked_label.grid(row=0, column=1, padx=20, pady=5, sticky="n")
         # Status Indicator (Circle) and Time Label (Second Row)
         self.indicator = ttk.Label(status_frame, text="●", font=(config.FONT_TYPE, config.CIRC_SIZE), bootstyle="secondary")
@@ -81,15 +79,100 @@ class MonitorGUIApp:
         self.stopbutton.pack(side=LEFT, expand=True, fill=X, padx=5, ipadx=2, ipady=5)
         self.stop_event = threading.Event()
 
+        #################################################################
+        # Local Backup Space Section
+        local_backup_frame = ttk.LabelFrame(master, text=f"{config.SHORT_NAME} Local Backup Drive Information", bootstyle=INFO)
+        local_backup_frame.pack(pady=config.LBLFRMPAD, padx=10, fill=X)
+        
+        # Display BACKUPUUID and MOUNTPOINT
+        backupuuid_label = ttk.Label(local_backup_frame, text=f"BACKUPUUID: {config.BACKUPUUID}", font=(config.FONT_TYPE, config.TINY_SIZE))
+        backupuuid_label.pack(pady=5)
+        
+        mountpoint_label = ttk.Label(local_backup_frame, text=f"MOUNTPOINT: {config.MOUNTPOINT}", font=(config.FONT_TYPE, config.TINY_SIZE))
+        mountpoint_label.pack(pady=0)
+        
+        # Calculate disk usage and remaining space using shutil
+        usage    = shutil.disk_usage(config.MOUNTPOINT)
+        free_GB  = round(usage.free / (1024**3))
+        total_GB = round(usage.total / (1024**3))
+        free_pct = int((usage.free / usage.total) * 100)
+        used_pct = 100 - free_pct
+
+        if used_pct < 75:
+            meter_color = "SUCCESS"
+        elif used_pct < 90:
+            meter_color = "WARNING"
+        else:
+            meter_color = "DANGER"
+
+        # Create a container frame for the Meter and drive info
+        meter_container = ttk.Frame(local_backup_frame)
+        meter_container.pack(anchor="center", pady=10)
+        
+        horizontal_gap = 20
+
+        # Meter
+        space_meter = ttk.Meter(
+            meter_container,
+            amounttotal=100,
+            amountused=used_pct,
+            showtext=False,
+            meterthickness=15,
+            metersize=100,
+            interactive=False,
+            stripethickness=9,
+            bootstyle=meter_color
+        )
+        space_meter.grid(row=0, column=0, padx=(0, horizontal_gap//2), pady=10)
+
+        # Place the meter in the left side of the grid
+        meter_percent_label = ttk.Label(
+            meter_container,
+            text=f"{used_pct}%\nused",
+            bootstyle=meter_color,
+            font=(config.FONT_TYPE, config.FONT_SIZE, 'bold')
+        )
+        meter_percent_label.place(in_=space_meter, relx=0.5, rely=0.5, anchor="center")
+
+        # Place spacer in teh middle grid
+        spacer = ttk.Frame(meter_container, width=horizontal_gap)
+        spacer.grid(row=0, column=1)
+
+        # Add drive information to the right side.
+        drive_info_frame = ttk.Frame(meter_container)
+        drive_info_frame.grid(row=0, column=2, padx=(horizontal_gap, 0), pady=10)
+
+        drive_header = ttk.Label(
+            drive_info_frame,
+            text="Drive Information",
+            font=(config.FONT_TYPE, config.FONT_SIZE, "underline")
+        )
+        drive_header.pack(anchor="center", pady=5)
+        total_label = ttk.Label(
+            drive_info_frame,
+            text=f"Total: {total_GB} GB",
+            font=(config.FONT_TYPE, config.FONT_SIZE)
+        )
+        total_label.pack(anchor="center")
+        used_label = ttk.Label(
+            drive_info_frame,
+            text=f"Used: {total_GB - free_GB} GB",
+            font=(config.FONT_TYPE, config.FONT_SIZE)
+        )
+        used_label.pack(anchor="center")
+
+        available_label = ttk.Label(
+            drive_info_frame,
+            text=f"Available: {free_GB} GB",
+            font=(config.FONT_TYPE, config.FONT_SIZE)
+        )
+        available_label.pack(anchor="center")
+
+        #################################################################
         # Backup Status Section
         backup_status_frame = ttk.LabelFrame(master, text=f"{config.SHORT_NAME} Backup Status", bootstyle=INFO)
         backup_status_frame.pack(pady=config.LBLFRMPAD, padx=10, fill=X)
-        # Backup Label
-        self.label = ttk.Label(
-            backup_status_frame, text=f"{config.SHORT_NAME} Backup Status",
-            font=(config.FONT_TYPE, config.HEAD_SIZE, "bold"), bootstyle=INFO
-        )
-        self.label.pack(pady=10)
+
         # Get backup logs
         self.backup_logs = self.get_backup_logs()
         # Latest Backup Label
@@ -98,26 +181,22 @@ class MonitorGUIApp:
         self.update_latest_backup_date()
         # Frame for Backup Button
         backup_button_frame = ttk.Frame(backup_status_frame)
-        backup_button_frame.pack(pady=15)
+        backup_button_frame.pack(pady=(0,15))
         # Backup Button
         self.backup_button = ttk.Button(
             backup_button_frame, text="Run Backup Now", command=self.run_backup, bootstyle=PRIMARY
         )
         self.backup_button.pack()
 
+        #################################################################
         # Backup List Section
         backup_list_frame = ttk.LabelFrame(master, text=f"{config.SHORT_NAME} Backup List", bootstyle=INFO)
         backup_list_frame.pack(pady=config.LBLFRMPAD, padx=10, fill=X)
-        # Backup Label
-        self.label = ttk.Label(
-            backup_list_frame, text=f"{config.SHORT_NAME} Backup List",
-            font=(config.FONT_TYPE, config.HEAD_SIZE, "bold"), bootstyle=INFO
-        )
-        self.label.pack(pady=10)
+
         # Listbox for backup logs
         logfile_frame = ttk.Frame(backup_list_frame)
         logfile_frame.pack(pady=10, padx=10, fill=X)
-        self.log_listbox = Listbox(logfile_frame, height=10, font=(config.FONT_TYPE, config.FONT_SIZE), selectmode=SINGLE)
+        self.log_listbox = Listbox(logfile_frame, height=5, font=(config.FONT_TYPE, config.FONT_SIZE), selectmode=SINGLE)
         self.log_listbox.pack(side=LEFT, fill=X, expand=True, padx=5)
         for log in self.backup_logs:
             self.log_listbox.insert(END, log)
@@ -137,6 +216,11 @@ class MonitorGUIApp:
             master, text=f"Close {config.SHORT_NAME} Status Monitor", command=self.on_closing, bootstyle=DANGER
         )
         self.close_button.pack(side=BOTTOM, pady=30)
+        # Start server monitoring when the GUI starts
+        self.start_monitoring()
+        # Run quick_backup_check at startup and schedule it to run every hour (3600000 ms)
+        self.quick_backup_check()
+        self.master.after(3600000, self.schedule_quick_backup_check)
 
     def get_screen_width(self):
         """Get the screen width to position the window on the top right-hand side."""
@@ -184,16 +268,15 @@ class MonitorGUIApp:
             days_since_backup = (datetime.datetime.now() - latest_backup_date).days
 
             if days_since_backup > 14:
-                self.label.config(bootstyle=DANGER)
+                self.latest_backup_label.config(bootstyle=DANGER)
             elif days_since_backup > 7:
-                self.label.config(bootstyle=WARNING)
+                self.latest_backup_label.config(bootstyle=WARNING)
             else:
-                self.label.config(bootstyle=INFO)
+                self.latest_backup_label.config(bootstyle=SUCCESS)
 
             self.latest_backup_label.config(text=f"Last Backup: {latest_log[:10]} [{days_since_backup} days]")
         else:
             self.latest_backup_label.config(text="Last Backup: Not Found")
-            self.label.config(bootstyle=DANGER)
 
     def get_backup_logs(self):
         """Retrieve available backup logs."""
@@ -225,13 +308,13 @@ class MonitorGUIApp:
                     response = requests.get(self.server_url, timeout=5)
                     if response.status_code == 200:
                         self.indicator.config(bootstyle=SUCCESS)
-                        # Only update time on success
                         self.time.config(text=now)
                     else:
                         self.indicator.config(bootstyle=DANGER)
                 except requests.RequestException:
                     self.indicator.config(bootstyle=DANGER)
                 self.indicator.update_idletasks()
+                self.quick_backup_check()
                 time.sleep(self.refresh_interval)
         elif config.CHECK_TYPE.upper() == "PING":
             host = self.server_url.replace("https://", "").replace("http://", "").split("/")[0]
@@ -243,13 +326,13 @@ class MonitorGUIApp:
                                             stderr=subprocess.DEVNULL, timeout=5)
                     if result.returncode == 0:
                         self.indicator.config(bootstyle=SUCCESS)
-                        # Only update time on success
                         self.time.config(text=now)
                     else:
                         self.indicator.config(bootstyle=DANGER)
                 except Exception:
                     self.indicator.config(bootstyle=DANGER)
                 self.indicator.update_idletasks()
+                self.quick_backup_check()
                 time.sleep(self.refresh_interval)
         else:
             while not self.stop_event.is_set():
@@ -264,7 +347,26 @@ class MonitorGUIApp:
                 except requests.RequestException:
                     self.indicator.config(bootstyle=DANGER)
                 self.indicator.update_idletasks()
+                self.quick_backup_check()   # Added: quickly check days since last backup
                 time.sleep(self.refresh_interval)
+                
+    def schedule_quick_backup_check(self):
+        """Schedules quick backup check once every hour."""
+        self.quick_backup_check()
+        self.master.after(3600000, self.schedule_quick_backup_check)
+
+    def quick_backup_check(self):
+        """Calculates days since last backup and updates the Last Backup label."""
+        if self.backup_logs:
+            try:
+                latest_log = self.backup_logs[0]
+                latest_backup_date = datetime.datetime.strptime(latest_log[:10], "%Y-%m-%d")
+                days_since_backup = (datetime.datetime.now() - latest_backup_date).days
+                self.latest_backup_label.config(text=f"Last Backup: {latest_log[:10]} [{days_since_backup} days]")
+            except Exception:
+                self.latest_backup_label.config(text="Last Backup: Error")
+        else:
+            self.latest_backup_label.config(text="Last Backup: Not Found")
 
     def stop_monitoring(self):
         """Stops monitoring."""
@@ -275,13 +377,11 @@ class MonitorGUIApp:
 
     def run_backup(self):
         """Runs the backup process in a separate thread to prevent UI freezing."""
-        threading.Thread(target=self._run_backup_process, daemon=True).start()
+        threading.Thread(target=self.run_backup_process, daemon=True).start()
 
-    def _run_backup_process(self):
+    def run_backup_process(self):
         """Runs the backup process in a new terminal window."""
         BKUPDATE = datetime.datetime.now().strftime("%Y-%m-%d")
-        LOGFILE = os.path.join(config.BACKUP_LOG, f"{BKUPDATE}-{config.LOG_PREFIX}.log")
-        
         rsync_command = [
             "gnome-terminal", "--geometry=120x24", "--", "bash", "-c", 
             f"rsync -avh --copy-links -e 'ssh -i {config.SSHKEYAUTH}' "
@@ -291,10 +391,9 @@ class MonitorGUIApp:
         ]
 
         print(rsync_command)
-        process = subprocess.Popen(rsync_command)  # Runs in a new terminal  # Runs in a new terminal
+        process = subprocess.Popen(rsync_command)  # Runs in a new terminal
         process.wait()                             # Wait for process to finish
         
-        process.wait()
         if process.returncode == 0:
             print(f"{config.SHORT_NAME} Files backed up at {os.path.join(os.getcwd(), config.BACKUP_DIR)}")
             self.backup_logs = self.get_backup_logs()
@@ -311,7 +410,7 @@ class MonitorGUIApp:
         self.master.destroy()
 
 if __name__ == "__main__":
-    root = ttk.Window(themename=config.GUI_THEME)  # Use theme from config.py
+    root = ttk.Window(themename=config.GUI_THEME)
     # Set the window to always be on top
     root.attributes("-topmost", True)
     app = MonitorGUIApp(root)

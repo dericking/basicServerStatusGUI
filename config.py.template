@@ -2,10 +2,11 @@
 GUI_THEME = "superhero"                                 # Default theme for the GUI
 FONT_TYPE = "Helvetica"                                 # Default font type
 FONT_SIZE = 12                                          # Default font size
+TINY_SIZE = 9                                           # Smallest font size
 HEAD_SIZE = 16                                          # Default header font size
 CIRC_SIZE = 30                                          # Status circle size
 WINDOWGEO = "400x850"                                   # Window size, width important
-LBLFRMPAD = 15                                          # Padding at the bottom of every LabelFrame
+LBLFRMPAD = 5   10                                      # Padding at the bottom of every LabelFrame
 
 
 # Monitoring Configuration
