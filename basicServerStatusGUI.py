@@ -495,20 +495,18 @@ def mount_and_check_drive():
                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         can_see_backup = os.path.isdir(os.path.join(config.MOUNTPOINT, config.BACKUP_DIR))
         can_see_log = os.path.isdir(os.path.join(config.MOUNTPOINT, config.BACKUP_LOG))
-
         if result.returncode != 0 or not (can_see_backup and can_see_log):
-            # Determine platform and choose terminal command accordingly.
+            # Determine the platform and launch the appropriate terminal command.
             if sys.platform.startswith("darwin"):
-                # MacOS version using osascript to launch Terminal and run the mount command.
+                # MacOS using AppleScript to open Terminal and run the mount command.
                 mount_cmd = f'sudo mount -t auto -U {config.BACKUPUUID} {config.MOUNTPOINT}; read -p "Press Enter to close..."'
                 full_cmd = ['osascript', '-e', f'tell application "Terminal" to do script "{mount_cmd}"']
             else:
-                # Linux version
+                # Linux version using GNOME Terminal
                 mount_cmd = f"sudo mount -t auto -U {config.BACKUPUUID} {config.MOUNTPOINT}; read -p 'Press Enter to close...'"
                 full_cmd = ["gnome-terminal", "--", "bash", "-c", mount_cmd]
-
             subprocess.run(full_cmd)
-            # Re-check the mount point after the terminal command completes
+            # Re-check after terminal command finished
             result = subprocess.run(["mountpoint", "-q", config.MOUNTPOINT],
                                     stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             if result.returncode == 0:
