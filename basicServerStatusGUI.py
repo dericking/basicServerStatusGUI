@@ -1,4 +1,10 @@
 from tkinter import messagebox, Listbox, Scrollbar, VERTICAL, RIGHT, Y, END, SINGLE
+
+# Fix ttkbootstrap compatibility with Pillow: library uses Image.CUBIC, Pillow has BICUBIC
+import PIL.Image
+if not hasattr(PIL.Image, 'CUBIC'):
+    PIL.Image.CUBIC = PIL.Image.BICUBIC
+
 import ttkbootstrap as ttk
 from ttkbootstrap.constants import *
 import shutil
@@ -46,7 +52,7 @@ class MonitorGUIApp:
 
         #################################################################
         # Server Status Section
-        server_status_frame = ttk.LabelFrame(master, text=f"{config.SHORT_NAME} Server Status",borderwidth=10, relief="groove", bootstyle=INFO)
+        server_status_frame = ttk.Labelframe(master, text=f"{config.SHORT_NAME} Server Status",borderwidth=10, relief="groove", bootstyle=INFO)
         server_status_frame.pack(pady=config.LBLFRMPAD, padx=10, fill=X)
 
         # Frame for grid layout
@@ -81,7 +87,7 @@ class MonitorGUIApp:
 
         #################################################################
         # Local Backup Space Section
-        local_backup_frame = ttk.LabelFrame(master, text=f"{config.SHORT_NAME} Local Backup Drive Information", bootstyle=INFO)
+        local_backup_frame = ttk.Labelframe(master, text=f"{config.SHORT_NAME} Local Backup Drive Information", bootstyle=INFO)
         local_backup_frame.pack(pady=config.LBLFRMPAD, padx=10, fill=X)
         
         # Display BACKUPUUID and MOUNTPOINT
@@ -245,7 +251,7 @@ class MonitorGUIApp:
 
         #################################################################
         # Backup Status Section
-        backup_status_frame = ttk.LabelFrame(master, text=f"{config.SHORT_NAME} Backup Status", bootstyle=INFO)
+        backup_status_frame = ttk.Labelframe(master, text=f"{config.SHORT_NAME} Backup Status", bootstyle=INFO)
         backup_status_frame.pack(pady=config.LBLFRMPAD, padx=10, fill=X)
 
         # Get backup logs
@@ -265,7 +271,7 @@ class MonitorGUIApp:
 
         #################################################################
         # Backup List Section
-        backup_list_frame = ttk.LabelFrame(master, text=f"{config.SHORT_NAME} Backup List", bootstyle=INFO)
+        backup_list_frame = ttk.Labelframe(master, text=f"{config.SHORT_NAME} Backup List", bootstyle=INFO)
         backup_list_frame.pack(pady=config.LBLFRMPAD, padx=10, fill=X)
 
         # Listbox for backup logs
@@ -342,14 +348,14 @@ class MonitorGUIApp:
             latest_backup_date = datetime.datetime.strptime(latest_log[:10], "%Y-%m-%d")
             days_since_backup = (datetime.datetime.now() - latest_backup_date).days
 
-            if days_since_backup > 14:
-                self.latest_backup_label.config(bootstyle=DANGER)
-            elif days_since_backup > 7:
-                self.latest_backup_label.config(bootstyle=WARNING)
+            # New bootstyle conditions based on days_since_backup
+            if days_since_backup < 4:
+                boot = "primary"
+            elif days_since_backup < 7:
+                boot = WARNING
             else:
-                self.latest_backup_label.config(bootstyle=SUCCESS)
-
-            self.latest_backup_label.config(text=f"Last Backup: {latest_log[:10]} [{days_since_backup} days]")
+                boot = DANGER
+            self.latest_backup_label.config(bootstyle=boot, text=f"Last Backup: {latest_log[:10]} [{days_since_backup} days]")
         else:
             self.latest_backup_label.config(text="Last Backup: Not Found")
 
@@ -437,7 +443,16 @@ class MonitorGUIApp:
                 latest_log = self.backup_logs[0]
                 latest_backup_date = datetime.datetime.strptime(latest_log[:10], "%Y-%m-%d")
                 days_since_backup = (datetime.datetime.now() - latest_backup_date).days
-                self.latest_backup_label.config(text=f"Last Backup: {latest_log[:10]} [{days_since_backup} days]")
+
+                # New bootstyle conditions based on days_since_backup
+                if days_since_backup < 4:
+                    boot = "primary"    # Normal
+                elif days_since_backup < 7:
+                    boot = WARNING       # Warning
+                else:
+                    boot = DANGER        # Danger
+
+                self.latest_backup_label.config(bootstyle=boot, text=f"Last Backup: {latest_log[:10]} [{days_since_backup} days]")
             except Exception:
                 self.latest_backup_label.config(text="Last Backup: Error")
         else:

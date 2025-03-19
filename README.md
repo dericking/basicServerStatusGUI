@@ -26,11 +26,28 @@ sudo apt update
 sudo apt install python3 python3-pip
 pip3 install ttkbootstrap requests
 ```
+
+Additionally, you may need: 
+
+```
+sudo apt install python3-tk
+```
+
+if your Linux distribution Python3 install doesn't come with tkinter.
+
 ### MacOS
 ```
+brew update
 brew install python3
 pip3 install ttkbootstrap requests
 ```
+
+You may need also XQuartz (if you don't already have it) depending on your Python build (if configured for X11):
+
+```
+brew install --cask xquartz
+```
+
 ## Configuration
 
 Copy the config.py.template file to config.py and edit accordingly.
@@ -54,7 +71,7 @@ Copy the config.py.template file to config.py and edit accordingly.
 | `MOUNTPOINT`    | Mount point of the backup drive                  | `/your/mount/point`                |
 | `BACKUP_DIR`    | Directory for the backup at mount point          | `directoryToSaveBackups/`          |
 | `BACKUP_LOG`    | Directory for the backup logs at mount point     | `directoryToSaveLogs/`             |
-| `BACKUPLINK`    | Symbolic link to the backup directory on remote server, ideally plaed in home directory | `symLinkToBackup`                  |
+| `BACKUPLINK`    | Symbolic link to the backup directory on remote server, ideally placed in home directory | `symLinkToBackup`                  |
 | `REMOTEUSER`    | Remote user for SSH connection                   | `remoteHostUser`                   |
 | `REMOTEHOST`    | Remote host for SSH connection                   | `your.remote.host`                 |
 | `SSHKEYAUTH`    | SSH key location for authentication              | `~/.ssh/yourSSHkey`                |
@@ -64,5 +81,6 @@ Copy the config.py.template file to config.py and edit accordingly.
 
 Run the application using the following command:
 
-```sh
-python basicServerStatusGUI.py
+```
+python3 basicServerStatusGUI.py
+```
