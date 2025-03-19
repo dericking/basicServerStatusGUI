@@ -26,11 +26,28 @@ sudo apt update
 sudo apt install python3 python3-pip
 pip3 install ttkbootstrap requests
 ```
+
+Additionally, you may need: 
+
+```
+sudo apt install python3-tk
+```
+
+if your Linux distribution Python3 install doesn't come with tkinter.
+
 ### MacOS
 ```
+brew update
 brew install python3
 pip3 install ttkbootstrap requests
 ```
+
+You may need also XQuartz (if you don't already have it) depending on your Python build (if configured for X11):
+
+```
+brew install --cask xquartz
+```
+
 ## Configuration
 
 Copy the config.py.template file to config.py and edit accordingly.
@@ -64,5 +81,6 @@ Copy the config.py.template file to config.py and edit accordingly.
 
 Run the application using the following command:
 
-```sh
-python basicServerStatusGUI.py
+```
+python3 basicServerStatusGUI.py
+```
