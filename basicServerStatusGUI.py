@@ -91,19 +91,45 @@ class MonitorGUIApp:
         mountpoint_label = ttk.Label(local_backup_frame, text=f"MOUNTPOINT: {config.MOUNTPOINT}", font=(config.FONT_TYPE, config.TINY_SIZE))
         mountpoint_label.pack(pady=0)
         
-        # Calculate disk usage and remaining space using shutil
-        usage    = shutil.disk_usage(config.MOUNTPOINT)
-        free_GB  = round(usage.free / (1024**3))
-        total_GB = round(usage.total / (1024**3))
-        free_pct = int((usage.free / usage.total) * 100)
-        used_pct = 100 - free_pct
+        # Check if backup drive can be properly mounted -- Need this check for people 
+        # who aren't familiar with managing external drives
+        can_mount = False
+        can_see_backup = False
+        can_see_log = False
+        mounted = False
+        # Check if the mount point exists and is accessible
+        if os.path.exists(config.MOUNTPOINT):
+            can_mount = True
+        if os.path.exists(os.path.join(config.MOUNTPOINT, config.BACKUP_DIR)):
+            can_see_backup = True
+        if os.path.exists(os.path.join(config.MOUNTPOINT, config.BACKUP_LOG)):
+            can_see_log = True
+        if can_mount and can_see_backup and can_see_log:
+            mounted = True
+        else:
+            can_mount, can_see_backup, can_see_log = mount_and_check_drive()
+        # Check again after attempting to mount
+        if can_mount and can_see_backup and can_see_log:
+            mounted = True
+        else:
+            mounted = False
 
-        if used_pct < 75:
-            meter_color = "SUCCESS"
-        elif used_pct < 90:
-            meter_color = "WARNING"
+        if mounted:
+            usage    = shutil.disk_usage(config.MOUNTPOINT)
+            free_GB  = round(usage.free / (1024**3))
+            total_GB = round(usage.total / (1024**3))
+            free_pct = int((usage.free / usage.total) * 100)
+            used_pct = 100 - free_pct
+
+            if used_pct < 75:
+                meter_color = "SUCCESS"
+            elif used_pct < 90:
+                meter_color = "WARNING"
+            else:
+                meter_color = "DANGER"
         else:
             meter_color = "DANGER"
+            used_pct = 100
 
         # Create a container frame for the Meter and drive info
         meter_container = ttk.Frame(local_backup_frame)
@@ -128,13 +154,13 @@ class MonitorGUIApp:
         # Place the meter in the left side of the grid
         meter_percent_label = ttk.Label(
             meter_container,
-            text=f"{used_pct}%\nused",
+            text=f"{used_pct}%\nused" if mounted else "ERROR",
             bootstyle=meter_color,
             font=(config.FONT_TYPE, config.FONT_SIZE, 'bold')
         )
         meter_percent_label.place(in_=space_meter, relx=0.5, rely=0.5, anchor="center")
 
-        # Place spacer in teh middle grid
+        # Place spacer in the middle grid
         spacer = ttk.Frame(meter_container, width=horizontal_gap)
         spacer.grid(row=0, column=1)
 
@@ -142,31 +168,80 @@ class MonitorGUIApp:
         drive_info_frame = ttk.Frame(meter_container)
         drive_info_frame.grid(row=0, column=2, padx=(horizontal_gap, 0), pady=10)
 
-        drive_header = ttk.Label(
-            drive_info_frame,
-            text="Drive Information",
-            font=(config.FONT_TYPE, config.FONT_SIZE, "underline")
-        )
-        drive_header.pack(anchor="center", pady=5)
-        total_label = ttk.Label(
-            drive_info_frame,
-            text=f"Total: {total_GB} GB",
-            font=(config.FONT_TYPE, config.FONT_SIZE)
-        )
-        total_label.pack(anchor="center")
-        used_label = ttk.Label(
-            drive_info_frame,
-            text=f"Used: {total_GB - free_GB} GB",
-            font=(config.FONT_TYPE, config.FONT_SIZE)
-        )
-        used_label.pack(anchor="center")
-
-        available_label = ttk.Label(
-            drive_info_frame,
-            text=f"Available: {free_GB} GB",
-            font=(config.FONT_TYPE, config.FONT_SIZE)
-        )
-        available_label.pack(anchor="center")
+        if mounted:
+            drive_header = ttk.Label(
+                drive_info_frame,
+                text="Drive Information",
+                font=(config.FONT_TYPE, config.FONT_SIZE, "underline")
+            )
+            drive_header.pack(anchor="center", pady=5)
+            total_label = ttk.Label(
+                drive_info_frame,
+                text=f"Total: {total_GB} GB",
+                font=(config.FONT_TYPE, config.FONT_SIZE)
+            )
+            total_label.pack(anchor="center")
+            used_label = ttk.Label(
+                drive_info_frame,
+                text=f"Used: {total_GB - free_GB} GB",
+                font=(config.FONT_TYPE, config.FONT_SIZE)
+            )
+            used_label.pack(anchor="center")
+            available_label = ttk.Label(
+                drive_info_frame,
+                text=f"Available: {free_GB} GB",
+                font=(config.FONT_TYPE, config.FONT_SIZE)
+            )
+            available_label.pack(anchor="center")
+        else:
+            drive_header = ttk.Label(
+                drive_info_frame,
+                text="Drive Information",
+                font=(config.FONT_TYPE, config.FONT_SIZE, "underline")
+            )
+            drive_header.pack(anchor="center", pady=5)
+            if can_mount:
+                mount_fail_label = ttk.Label(
+                    drive_info_frame,
+                    text="Mount Point: Found",
+                    font=(config.FONT_TYPE, config.FONT_SIZE)
+                )
+            else: 
+                mount_fail_label = ttk.Label(
+                    drive_info_frame,
+                    text="Mount Point: Not Found",
+                    bootstyle="DANGER",
+                    font=(config.FONT_TYPE, config.FONT_SIZE)
+                )
+            mount_fail_label.pack(anchor="center", pady=5)
+            if can_see_backup:
+                backup_fail_label = ttk.Label(
+                    drive_info_frame,
+                    text="Backup Dir: Found",
+                    font=(config.FONT_TYPE, config.FONT_SIZE)
+                )
+            else: 
+                backup_fail_label = ttk.Label(
+                    drive_info_frame,
+                    text="Backup Dir: Not Found",
+                    bootstyle="DANGER",
+                    font=(config.FONT_TYPE, config.FONT_SIZE)
+                )
+            backup_fail_label.pack(anchor="center", pady=5)
+            if can_see_log:
+                log_fail_label = ttk.Label(
+                    drive_info_frame,
+                    text="Log Dir: Found",
+                    font=(config.FONT_TYPE, config.FONT_SIZE)
+                )
+            else: 
+                log_fail_label = ttk.Label(
+                    drive_info_frame,
+                    text="Log Dir: Not Found",
+                    bootstyle="DANGER",
+                    font=(config.FONT_TYPE, config.FONT_SIZE)
+                )
+            log_fail_label.pack(anchor="center", pady=5)
 
         #################################################################
         # Backup Status Section
@@ -408,6 +483,42 @@ class MonitorGUIApp:
         """Handles window closing."""
         self.stop_event.set()
         self.master.destroy()
+
+def mount_and_check_drive():
+    import os, subprocess, sys
+    can_mount_temp = False
+    can_see_backup_temp = False
+    can_see_log_temp = False
+
+    try:
+        result = subprocess.run(["mountpoint", "-q", config.MOUNTPOINT],
+                                stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        can_see_backup = os.path.isdir(os.path.join(config.MOUNTPOINT, config.BACKUP_DIR))
+        can_see_log = os.path.isdir(os.path.join(config.MOUNTPOINT, config.BACKUP_LOG))
+
+        if result.returncode != 0 or not (can_see_backup and can_see_log):
+            # Determine platform and choose terminal command accordingly.
+            if sys.platform.startswith("darwin"):
+                # MacOS version using osascript to launch Terminal and run the mount command.
+                mount_cmd = f'sudo mount -t auto -U {config.BACKUPUUID} {config.MOUNTPOINT}; read -p "Press Enter to close..."'
+                full_cmd = ['osascript', '-e', f'tell application "Terminal" to do script "{mount_cmd}"']
+            else:
+                # Linux version
+                mount_cmd = f"sudo mount -t auto -U {config.BACKUPUUID} {config.MOUNTPOINT}; read -p 'Press Enter to close...'"
+                full_cmd = ["gnome-terminal", "--", "bash", "-c", mount_cmd]
+
+            subprocess.run(full_cmd)
+            # Re-check the mount point after the terminal command completes
+            result = subprocess.run(["mountpoint", "-q", config.MOUNTPOINT],
+                                    stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            if result.returncode == 0:
+                can_mount_temp = True
+                can_see_backup_temp = os.path.isdir(os.path.join(config.MOUNTPOINT, config.BACKUP_DIR))
+                can_see_log_temp = os.path.isdir(os.path.join(config.MOUNTPOINT, config.BACKUP_LOG))
+        return can_mount_temp, can_see_backup_temp, can_see_log_temp
+    except Exception as e:
+        print("Error in mount_and_check_drive:", e)
+        return False, False, False
 
 if __name__ == "__main__":
     root = ttk.Window(themename=config.GUI_THEME)
