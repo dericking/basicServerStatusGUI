@@ -97,8 +97,10 @@ class MonitorGUIApp:
         mountpoint_label = ttk.Label(local_backup_frame, text=f"MOUNTPOINT: {config.MOUNTPOINT}", font=(config.FONT_TYPE, config.TINY_SIZE))
         mountpoint_label.pack(pady=0)
         
-        # Check if backup drive can be properly mounted -- Need this check for people 
-        # who aren't familiar with managing external drives
+        # Check if backup drive can be properly mounted -- Need this check for people
+        # who aren't familiar with managing external drives.
+        # If the drive is not visible yet (e.g. automount still in progress), retry
+        # once after a short delay so we don't show "not reached" intermittently.
         can_mount = False
         can_see_backup = False
         can_see_log = False
@@ -114,11 +116,18 @@ class MonitorGUIApp:
             mounted = True
         else:
             can_mount, can_see_backup, can_see_log = mount_and_check_drive()
-        # Check again after attempting to mount
         if can_mount and can_see_backup and can_see_log:
             mounted = True
-        else:
-            mounted = False
+        if not mounted:
+            # Retry once after a short delay (mount may appear shortly after login/startup)
+            time.sleep(2)
+            can_mount = os.path.exists(config.MOUNTPOINT)
+            can_see_backup = os.path.exists(os.path.join(config.MOUNTPOINT, config.BACKUP_DIR))
+            can_see_log = os.path.exists(os.path.join(config.MOUNTPOINT, config.BACKUP_LOG))
+            if not (can_mount and can_see_backup and can_see_log):
+                can_mount, can_see_backup, can_see_log = mount_and_check_drive()
+            if can_mount and can_see_backup and can_see_log:
+                mounted = True
 
         if mounted:
             usage    = shutil.disk_usage(config.MOUNTPOINT)
@@ -528,6 +537,11 @@ def mount_and_check_drive():
                 can_mount_temp = True
                 can_see_backup_temp = os.path.isdir(os.path.join(config.MOUNTPOINT, config.BACKUP_DIR))
                 can_see_log_temp = os.path.isdir(os.path.join(config.MOUNTPOINT, config.BACKUP_LOG))
+        else:
+            # Drive is already mounted and dirs are visible
+            can_mount_temp = True
+            can_see_backup_temp = can_see_backup
+            can_see_log_temp = can_see_log
         return can_mount_temp, can_see_backup_temp, can_see_log_temp
     except Exception as e:
         print("Error in mount_and_check_drive:", e)
