@@ -37,6 +37,8 @@ To run it from anywhere, add the project directory to your `PATH`, or create a s
 ln -sf "$(pwd)/basicServerStatusGUI" ~/.local/bin/basicServerStatusGUI
 ```
 
+The wrapper embeds the project path at install time, so as long as the project directory is not moved, it will always find `config.py`. If you move the project to a new location, run `./install.sh` again from the new directory to update the wrapper.
+
 ### Manual installation
 
 Install the required Python packages with pip (or use `pip install -r requirements.txt`):
