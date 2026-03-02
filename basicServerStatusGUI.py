@@ -128,6 +128,14 @@ class MonitorGUIApp:
                 can_mount, can_see_backup, can_see_log = mount_and_check_drive()
             if can_mount and can_see_backup and can_see_log:
                 mounted = True
+        if not mounted and can_mount and (not can_see_backup or not can_see_log):
+            # Drive mounted but dirs missing: try to create them
+            success, _ = create_backup_dirs()
+            if success:
+                can_see_backup = os.path.exists(os.path.join(config.MOUNTPOINT, config.BACKUP_DIR))
+                can_see_log = os.path.exists(os.path.join(config.MOUNTPOINT, config.BACKUP_LOG))
+                if can_see_backup and can_see_log:
+                    mounted = True
 
         if mounted:
             usage    = shutil.disk_usage(config.MOUNTPOINT)
@@ -152,8 +160,8 @@ class MonitorGUIApp:
         
         horizontal_gap = 20
 
-        # Meter
-        space_meter = ttk.Meter(
+        # Meter (store refs for refresh when dirs created via button)
+        self.space_meter = ttk.Meter(
             meter_container,
             amounttotal=100,
             amountused=used_pct,
@@ -164,66 +172,67 @@ class MonitorGUIApp:
             stripethickness=9,
             bootstyle=meter_color
         )
-        space_meter.grid(row=0, column=0, padx=(0, horizontal_gap//2), pady=10)
+        self.space_meter.grid(row=0, column=0, padx=(0, horizontal_gap//2), pady=10)
 
         # Place the meter in the left side of the grid
-        meter_percent_label = ttk.Label(
+        self.meter_percent_label = ttk.Label(
             meter_container,
             text=f"{used_pct}%\nused" if mounted else "ERROR",
             bootstyle=meter_color,
             font=(config.FONT_TYPE, config.FONT_SIZE, 'bold')
         )
-        meter_percent_label.place(in_=space_meter, relx=0.5, rely=0.5, anchor="center")
+        self.meter_percent_label.place(in_=self.space_meter, relx=0.5, rely=0.5, anchor="center")
 
         # Place spacer in the middle grid
         spacer = ttk.Frame(meter_container, width=horizontal_gap)
         spacer.grid(row=0, column=1)
 
         # Add drive information to the right side.
-        drive_info_frame = ttk.Frame(meter_container)
-        drive_info_frame.grid(row=0, column=2, padx=(horizontal_gap, 0), pady=10)
+        self.drive_info_frame = ttk.Frame(meter_container)
+        self.drive_info_frame.grid(row=0, column=2, padx=(horizontal_gap, 0), pady=10)
 
         if mounted:
             drive_header = ttk.Label(
-                drive_info_frame,
+                self.drive_info_frame,
                 text="Drive Information",
                 font=(config.FONT_TYPE, config.FONT_SIZE, "underline")
             )
             drive_header.pack(anchor="center", pady=5)
             total_label = ttk.Label(
-                drive_info_frame,
+                self.drive_info_frame,
                 text=f"Total: {total_GB} GB",
                 font=(config.FONT_TYPE, config.FONT_SIZE)
             )
             total_label.pack(anchor="center")
             used_label = ttk.Label(
-                drive_info_frame,
+                self.drive_info_frame,
                 text=f"Used: {total_GB - free_GB} GB",
                 font=(config.FONT_TYPE, config.FONT_SIZE)
             )
             used_label.pack(anchor="center")
             available_label = ttk.Label(
-                drive_info_frame,
+                self.drive_info_frame,
                 text=f"Available: {free_GB} GB",
                 font=(config.FONT_TYPE, config.FONT_SIZE)
             )
             available_label.pack(anchor="center")
+            self.create_dirs_button = None
         else:
             drive_header = ttk.Label(
-                drive_info_frame,
+                self.drive_info_frame,
                 text="Drive Information",
                 font=(config.FONT_TYPE, config.FONT_SIZE, "underline")
             )
             drive_header.pack(anchor="center", pady=5)
             if can_mount:
                 mount_fail_label = ttk.Label(
-                    drive_info_frame,
+                    self.drive_info_frame,
                     text="Mount Point: Found",
                     font=(config.FONT_TYPE, config.FONT_SIZE)
                 )
-            else: 
+            else:
                 mount_fail_label = ttk.Label(
-                    drive_info_frame,
+                    self.drive_info_frame,
                     text="Mount Point: Not Found",
                     bootstyle="DANGER",
                     font=(config.FONT_TYPE, config.FONT_SIZE)
@@ -231,13 +240,13 @@ class MonitorGUIApp:
             mount_fail_label.pack(anchor="center", pady=5)
             if can_see_backup:
                 backup_fail_label = ttk.Label(
-                    drive_info_frame,
+                    self.drive_info_frame,
                     text="Backup Dir: Found",
                     font=(config.FONT_TYPE, config.FONT_SIZE)
                 )
-            else: 
+            else:
                 backup_fail_label = ttk.Label(
-                    drive_info_frame,
+                    self.drive_info_frame,
                     text="Backup Dir: Not Found",
                     bootstyle="DANGER",
                     font=(config.FONT_TYPE, config.FONT_SIZE)
@@ -245,18 +254,28 @@ class MonitorGUIApp:
             backup_fail_label.pack(anchor="center", pady=5)
             if can_see_log:
                 log_fail_label = ttk.Label(
-                    drive_info_frame,
+                    self.drive_info_frame,
                     text="Log Dir: Found",
                     font=(config.FONT_TYPE, config.FONT_SIZE)
                 )
-            else: 
+            else:
                 log_fail_label = ttk.Label(
-                    drive_info_frame,
+                    self.drive_info_frame,
                     text="Log Dir: Not Found",
                     bootstyle="DANGER",
                     font=(config.FONT_TYPE, config.FONT_SIZE)
                 )
             log_fail_label.pack(anchor="center", pady=5)
+            if can_mount and (not can_see_backup or not can_see_log):
+                self.create_dirs_button = ttk.Button(
+                    self.drive_info_frame,
+                    text="Create directories",
+                    command=self._on_create_directories,
+                    bootstyle=PRIMARY
+                )
+                self.create_dirs_button.pack(anchor="center", pady=10)
+            else:
+                self.create_dirs_button = None
 
         #################################################################
         # Backup Status Section
@@ -378,6 +397,58 @@ class MonitorGUIApp:
             )
             return logs
         return []
+
+    def _on_create_directories(self):
+        """Create BACKUP_DIR and BACKUP_LOG on the drive, then refresh the Local Backup section."""
+        success, error_message = create_backup_dirs()
+        if not success:
+            messagebox.showerror("Create directories", f"Could not create directories: {error_message}")
+            return
+        can_see_backup = os.path.exists(os.path.join(config.MOUNTPOINT, config.BACKUP_DIR))
+        can_see_log = os.path.exists(os.path.join(config.MOUNTPOINT, config.BACKUP_LOG))
+        if not (can_see_backup and can_see_log):
+            return
+        usage = shutil.disk_usage(config.MOUNTPOINT)
+        free_GB = round(usage.free / (1024**3))
+        total_GB = round(usage.total / (1024**3))
+        free_pct = int((usage.free / usage.total) * 100)
+        used_pct = 100 - free_pct
+        if used_pct < 75:
+            meter_color = "SUCCESS"
+        elif used_pct < 90:
+            meter_color = "WARNING"
+        else:
+            meter_color = "DANGER"
+        self.space_meter.configure(amountused=used_pct, bootstyle=meter_color)
+        self.meter_percent_label.config(text=f"{used_pct}%\nused", bootstyle=meter_color)
+        for w in self.drive_info_frame.winfo_children():
+            w.destroy()
+        ttk.Label(
+            self.drive_info_frame,
+            text="Drive Information",
+            font=(config.FONT_TYPE, config.FONT_SIZE, "underline")
+        ).pack(anchor="center", pady=5)
+        ttk.Label(
+            self.drive_info_frame,
+            text=f"Total: {total_GB} GB",
+            font=(config.FONT_TYPE, config.FONT_SIZE)
+        ).pack(anchor="center")
+        ttk.Label(
+            self.drive_info_frame,
+            text=f"Used: {total_GB - free_GB} GB",
+            font=(config.FONT_TYPE, config.FONT_SIZE)
+        ).pack(anchor="center")
+        ttk.Label(
+            self.drive_info_frame,
+            text=f"Available: {free_GB} GB",
+            font=(config.FONT_TYPE, config.FONT_SIZE)
+        ).pack(anchor="center")
+        self.create_dirs_button = None
+        self.backup_logs = self.get_backup_logs()
+        self.log_listbox.delete(0, END)
+        for log in self.backup_logs:
+            self.log_listbox.insert(END, log)
+        self.update_latest_backup_date()
 
     def start_monitoring(self):
         """Starts monitoring in separate thread."""
@@ -507,6 +578,20 @@ class MonitorGUIApp:
         """Handles window closing."""
         self.stop_event.set()
         self.master.destroy()
+
+def create_backup_dirs():
+    """Create BACKUP_DIR and BACKUP_LOG on the mount if missing. Returns (success, error_message)."""
+    try:
+        backup_dir_path = os.path.join(config.MOUNTPOINT, config.BACKUP_DIR)
+        log_dir_path = os.path.join(config.MOUNTPOINT, config.BACKUP_LOG)
+        if not os.path.exists(backup_dir_path):
+            os.makedirs(backup_dir_path, exist_ok=True)
+        if not os.path.exists(log_dir_path):
+            os.makedirs(log_dir_path, exist_ok=True)
+        return (True, None)
+    except OSError as e:
+        return (False, str(e))
+
 
 def mount_and_check_drive():
     import os, subprocess, sys
